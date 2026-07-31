@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0d1726" />
+    <title>IITK Weekly Timetable</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">IIT KANPUR · AUTUMN 2026–27</p>
+          <h1>Weekly timetable<span class="accent">.</span></h1>
+          <p class="lede">A calm view of your classes, TA duty, and optional audits.</p>
+        </div>
+        <div class="hero-actions">
+          <button class="button button-quiet" id="resetBtn" type="button">Reset defaults</button>
+          <button class="button button-primary" id="addBtn" type="button">＋ Add event</button>
+        </div>
+      </header>
+
+      <section class="summary" aria-label="Timetable summary">
+        <div><strong id="eventCount">0</strong><span>events this week</span></div>
+        <div><strong id="formalCount">0</strong><span>formal courses</span></div>
+        <div><strong id="clashCount">0</strong><span>clashes flagged</span></div>
+        <p class="saved-note" id="savedNote">Saved in this browser</p>
+      </section>
+
+      <section class="legend" aria-label="Event types">
+        <span><i class="dot formal"></i>Formal course</span>
+        <span><i class="dot ta"></i>TA duty</span>
+        <span><i class="dot audit"></i>Optional / audit</span>
+      </section>
+
+      <section class="board-wrap" aria-label="Weekly timetable">
+        <div class="board" id="board"></div>
+      </section>
+
+      <section class="audit-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">OPTIONAL TRACK</p>
+            <h2>Audit courses</h2>
+          </div>
+          <p>Keep these visible without letting them crowd the formal plan.</p>
+        </div>
+        <div id="auditList" class="audit-list"></div>
+      </section>
+
+      <footer><span>Edits stay on this device.</span><span>Tip: use the edit button on any card.</span></footer>
+    </main>
+
+    <dialog id="eventDialog">
+      <form method="dialog" id="eventForm">
+        <div class="dialog-head"><div><p class="eyebrow">TIMETABLE EDITOR</p><h2 id="dialogTitle">Add event</h2></div><button class="close" value="cancel" aria-label="Close">×</button></div>
+        <input type="hidden" id="eventId" />
+        <label>Title<input id="title" required maxlength="80" placeholder="e.g. CS781 — Large Language Models" /></label>
+        <div class="form-grid"><label>Day<select id="day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label><label>Type<select id="type"><option value="formal">Formal course</option><option value="ta">TA duty</option><option value="audit">Optional / audit</option></select></label></div>
+        <div class="form-grid"><label>Start<input id="start" type="time" required /></label><label>End<input id="end" type="time" required /></label></div>
+        <label>Location <span class="muted">(optional)</span><input id="location" maxlength="50" placeholder="e.g. L20" /></label>
+        <label class="check"><input id="editableDefault" type="checkbox" /> Show as editable default / note</label>
+        <div class="dialog-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-primary" id="saveBtn" value="default">Save event</button></div>
+      </form>
+    </dialog>
+    <script src="app.js"></script>
+  </body>
+</html>
