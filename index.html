@@ -2,9 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0d1726" />
-    <title>IITK Weekly Timetable</title>
+    <meta name="description" content="A calm, editable weekly timetable for classes, TA duty, and optional audits." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Weekly timetable</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -14,13 +21,17 @@
     <main class="shell">
       <header class="hero">
         <div>
-          <p class="eyebrow">IIT KANPUR · AUTUMN 2026–27</p>
+          <p class="eyebrow" id="termLabel">IIT KANPUR · AUTUMN 2026–27</p>
           <h1>Weekly timetable<span class="accent">.</span></h1>
           <p class="lede">A calm view of your classes, TA duty, and optional audits.</p>
         </div>
         <div class="hero-actions">
+          <button class="button button-quiet" id="loadBtn" type="button">Load CSV</button>
+          <button class="button button-quiet" id="themeToggle" type="button" aria-label="Switch to light mode">☼ Light</button>
+          <button class="button button-quiet" id="installBtn" type="button" hidden>Install app</button>
           <button class="button button-quiet" id="resetBtn" type="button">Reset defaults</button>
           <button class="button button-primary" id="addBtn" type="button">＋ Add event</button>
+          <input id="csvInput" type="file" accept=".csv,text/csv" hidden />
         </div>
       </header>
 
@@ -28,13 +39,14 @@
         <div><strong id="eventCount">0</strong><span>events this week</span></div>
         <div><strong id="formalCount">0</strong><span>formal courses</span></div>
         <div><strong id="clashCount">0</strong><span>clashes flagged</span></div>
-        <p class="saved-note" id="savedNote">Saved in this browser</p>
+        <p class="saved-note" id="savedNote">Loading schedule.csv…</p>
       </section>
 
       <section class="legend" aria-label="Event types">
         <span><i class="dot formal"></i>Formal course</span>
         <span><i class="dot ta"></i>TA duty</span>
         <span><i class="dot audit"></i>Optional / audit</span>
+        <a href="schedule.csv" download>Download sample CSV</a>
       </section>
 
       <section class="board-wrap" aria-label="Weekly timetable">
@@ -52,18 +64,30 @@
         <div id="auditList" class="audit-list"></div>
       </section>
 
-      <footer><span>Edits stay on this device.</span><span>Tip: use the edit button on any card.</span></footer>
+      <footer><span id="sourceNote">Source: schedule.csv</span><span>Tip: click any card for details.</span></footer>
     </main>
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="detail-sidebar" id="detailSidebar" aria-hidden="true" aria-labelledby="detailTitle">
+      <div class="sidebar-head">
+        <div><p class="eyebrow">EVENT DETAILS</p><h2 id="detailTitle">Selected event</h2></div>
+        <button class="close" id="sidebarClose" type="button" aria-label="Close event details">×</button>
+      </div>
+      <div class="detail-content" id="detailContent"></div>
+      <div class="sidebar-actions"><button class="button button-quiet" id="sidebarDelete" type="button">Delete</button><button class="button button-primary" id="sidebarEdit" type="button">Edit event</button></div>
+    </aside>
 
     <dialog id="eventDialog">
       <form method="dialog" id="eventForm">
         <div class="dialog-head"><div><p class="eyebrow">TIMETABLE EDITOR</p><h2 id="dialogTitle">Add event</h2></div><button class="close" value="cancel" aria-label="Close">×</button></div>
         <input type="hidden" id="eventId" />
-        <label>Title<input id="title" required maxlength="80" placeholder="e.g. CS781 — Large Language Models" /></label>
-        <div class="form-grid"><label>Day<select id="day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label><label>Type<select id="type"><option value="formal">Formal course</option><option value="ta">TA duty</option><option value="audit">Optional / audit</option></select></label></div>
+        <div class="form-grid"><label>Course code<input id="course" maxlength="20" placeholder="e.g. CS781" /></label><label>Type<select id="type"><option value="formal">Formal course</option><option value="ta">TA duty</option><option value="audit">Optional / audit</option></select></label></div>
+        <label>Title<input id="title" required maxlength="100" placeholder="e.g. Large Language Models" /></label>
+        <label>Instructor(s) <span class="muted">(optional)</span><input id="instructor" maxlength="120" placeholder="e.g. Ashutosh Modi" /></label>
+        <div class="form-grid"><label>Day<select id="day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label><label>Location <span class="muted">(optional)</span><input id="location" maxlength="60" placeholder="e.g. L20" /></label></div>
         <div class="form-grid"><label>Start<input id="start" type="time" required /></label><label>End<input id="end" type="time" required /></label></div>
-        <label>Location <span class="muted">(optional)</span><input id="location" maxlength="50" placeholder="e.g. L20" /></label>
-        <label class="check"><input id="editableDefault" type="checkbox" /> Show as editable default / note</label>
+        <label>Details <span class="muted">(optional)</span><textarea id="details" rows="3" maxlength="500" placeholder="Anything useful to remember…"></textarea></label>
+        <label class="check"><input id="editableDefault" type="checkbox" /> Mark as editable default / note</label>
         <div class="dialog-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-primary" id="saveBtn" value="default">Save event</button></div>
       </form>
     </dialog>
