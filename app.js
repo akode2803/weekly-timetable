@@ -120,6 +120,59 @@ function updateTermLabel() {
   $('termLabel').textContent = term ? `IIT KANPUR · ${term.toUpperCase()}` : 'IIT KANPUR · WEEKLY SCHEDULE';
 }
 
+function getClashClusters(dayEvents) {
+  const clusters = [];
+  dayEvents.forEach((event) => {
+    const start = mins(event.start);
+    const end = mins(event.end);
+    const overlappingIndices = [];
+    for (let i = 0; i < clusters.length; i += 1) {
+      if (start < clusters[i].end && end > clusters[i].start) {
+        overlappingIndices.push(i);
+      }
+    }
+    if (overlappingIndices.length === 0) {
+      clusters.push({ start, end, events: [event] });
+    } else {
+      const firstIdx = overlappingIndices[0];
+      const merged = clusters[firstIdx];
+      merged.events.push(event);
+      merged.start = Math.min(merged.start, start);
+      merged.end = Math.max(merged.end, end);
+      for (let k = overlappingIndices.length - 1; k > 0; k -= 1) {
+        const idx = overlappingIndices[k];
+        merged.events.push(...clusters[idx].events);
+        merged.start = Math.min(merged.start, clusters[idx].start);
+        merged.end = Math.max(merged.end, clusters[idx].end);
+        clusters.splice(idx, 1);
+      }
+    }
+  });
+  return clusters;
+}
+
+function renderCardHTML(event, isClash) {
+  return `
+    <span class="event-course">${escapeHtml(event.course || typeLabel[event.type])}</span>
+    <span class="event-title">${escapeHtml(event.title)}</span>
+    <span class="event-time">${formatTime(event.start)} – ${formatTime(event.end)}</span>
+    <span class="event-instructor">${event.instructor ? `Instructor · ${escapeHtml(event.instructor)}` : 'Instructor not set'}</span>
+    ${event.location ? `<span class="event-location">${escapeHtml(event.location)}</span>` : ''}
+    ${isClash ? '<span class="clash-badge">CLASH</span>' : ''}`;
+}
+
+function createCardElement(event, top, height, isClash) {
+  const card = document.createElement('article');
+  card.className = `event-card ${event.type}${isClash ? ' clash' : ''}`;
+  card.dataset.eventId = event.id;
+  card.tabIndex = 0;
+  card.setAttribute('aria-label', `${formatName(event)}, ${event.day}, ${formatTime(event.start)} to ${formatTime(event.end)}`);
+  card.style.top = `${top}px`;
+  card.style.height = `${height}px`;
+  card.innerHTML = renderCardHTML(event, isClash);
+  return card;
+}
+
 function render() {
   const bad = clashes();
   const visibleEvents = filteredEvents();
@@ -135,24 +188,78 @@ function render() {
   DAYS.forEach((day) => {
     const column = document.createElement('div');
     column.className = `day-column${DAYS.indexOf(day) === todayIndex ? ' current-day' : ''}`;
-    visibleEvents.filter((event) => event.day === day).sort((a, b) => mins(a.start) - mins(b.start)).forEach((event) => {
-      const top = Math.max(0, mins(event.start) - BOARD_START);
-      const height = Math.max(42, Math.min(BOARD_END - BOARD_START, mins(event.end) - mins(event.start)));
-      const card = document.createElement('article');
-      card.className = `event-card ${event.type}${bad.has(event.id) ? ' clash' : ''}`;
-      card.dataset.eventId = event.id;
-      card.tabIndex = 0;
-      card.setAttribute('aria-label', `${formatName(event)}, ${event.day}, ${formatTime(event.start)} to ${formatTime(event.end)}`);
-      card.style.top = `${top}px`;
-      card.style.height = `${height}px`;
-      card.innerHTML = `
-        <span class="event-course">${escapeHtml(event.course || typeLabel[event.type])}</span>
-        <span class="event-title">${escapeHtml(event.title)}</span>
-        <span class="event-time">${formatTime(event.start)} – ${formatTime(event.end)}</span>
-        <span class="event-instructor">${event.instructor ? `Instructor · ${escapeHtml(event.instructor)}` : 'Instructor not set'}</span>
-        ${event.location ? `<span class="event-location">${escapeHtml(event.location)}</span>` : ''}
-        ${bad.has(event.id) ? '<span class="clash-badge">CLASH</span>' : ''}`;
-      column.appendChild(card);
+    const dayEvents = visibleEvents.filter((event) => event.day === day).sort((a, b) => mins(a.start) - mins(b.start));
+    const clusters = getClashClusters(dayEvents);
+
+    clusters.forEach((cluster) => {
+      if (cluster.events.length === 1) {
+        const event = cluster.events[0];
+        const top = Math.max(0, mins(event.start) - BOARD_START);
+        const height = Math.max(42, Math.min(BOARD_END - BOARD_START, mins(event.end) - mins(event.start)));
+        column.appendChild(createCardElement(event, top, height, bad.has(event.id)));
+      } else {
+        const cTop = Math.max(0, cluster.start - BOARD_START);
+        const cHeight = Math.max(42, Math.min(BOARD_END - BOARD_START, cluster.end - cluster.start));
+
+        const sliderContainer = document.createElement('div');
+        sliderContainer.className = 'clash-slider-container';
+        sliderContainer.style.top = `${cTop}px`;
+        sliderContainer.style.height = `${cHeight}px`;
+
+        const indicator = document.createElement('span');
+        indicator.className = 'clash-count-indicator';
+        indicator.textContent = `1/${cluster.events.length}`;
+
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'clash-nav clash-prev';
+        prevBtn.type = 'button';
+        prevBtn.setAttribute('aria-label', 'Previous overlapping event');
+        prevBtn.disabled = true;
+        prevBtn.textContent = '‹';
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'clash-nav clash-next';
+        nextBtn.type = 'button';
+        nextBtn.setAttribute('aria-label', 'Next overlapping event');
+        nextBtn.textContent = '›';
+
+        const slider = document.createElement('div');
+        slider.className = 'clash-slider';
+
+        cluster.events.forEach((event) => {
+          const slide = document.createElement('div');
+          slide.className = 'clash-slide';
+          const relTop = Math.max(0, mins(event.start) - cluster.start);
+          const relHeight = Math.max(42, Math.min(cHeight - relTop, mins(event.end) - mins(event.start)));
+          const card = createCardElement(event, relTop, relHeight, bad.has(event.id));
+          slide.appendChild(card);
+          slider.appendChild(slide);
+        });
+
+        const updateNav = () => {
+          const slideWidth = slider.clientWidth || 1;
+          const index = Math.round(slider.scrollLeft / slideWidth);
+          indicator.textContent = `${index + 1}/${cluster.events.length}`;
+          prevBtn.disabled = index <= 0;
+          nextBtn.disabled = index >= cluster.events.length - 1;
+        };
+
+        slider.addEventListener('scroll', updateNav, { passive: true });
+        prevBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          slider.scrollBy({ left: -slider.clientWidth, behavior: 'smooth' });
+        });
+        nextBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          slider.scrollBy({ left: slider.clientWidth, behavior: 'smooth' });
+        });
+
+        sliderContainer.appendChild(indicator);
+        sliderContainer.appendChild(prevBtn);
+        sliderContainer.appendChild(slider);
+        sliderContainer.appendChild(nextBtn);
+        column.appendChild(sliderContainer);
+      }
     });
     board.appendChild(column);
   });
@@ -285,20 +392,57 @@ function icsEscape(value = '') {
 
 function foldIcsLines(lines) {
   return lines.flatMap((line) => {
+    if (line.length <= 75) return [line];
     const chunks = [];
-    for (let index = 0; index < line.length; index += 74) chunks.push(`${chunks.length ? ' ' : ''}${line.slice(index, index + 74)}`);
+    chunks.push(line.slice(0, 75));
+    let rest = line.slice(75);
+    while (rest.length > 0) {
+      chunks.push(' ' + rest.slice(0, 74));
+      rest = rest.slice(74);
+    }
     return chunks;
   }).join('\r\n') + '\r\n';
 }
 
 function buildIcs(weekStart, weeks, exportEvents) {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'PRODID:-//IITK Weekly Timetable//EN', 'X-WR-CALNAME:IITK Weekly Timetable', `X-WR-TIMEZONE:${TIME_ZONE}`];
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'PRODID:-//IITK Weekly Timetable//EN',
+    'X-WR-CALNAME:IITK Weekly Timetable',
+    `X-WR-TIMEZONE:${TIME_ZONE}`,
+    'BEGIN:VTIMEZONE',
+    `TZID:${TIME_ZONE}`,
+    'X-LIC-LOCATION:Asia/Kolkata',
+    'BEGIN:STANDARD',
+    'TZNAME:IST',
+    'TZOFFSETFROM:+0530',
+    'TZOFFSETTO:+0530',
+    'DTSTART:19700101T000000',
+    'END:STANDARD',
+    'END:VTIMEZONE'
+  ];
   exportEvents.forEach((event) => {
     const date = dateForEvent(weekStart, event);
     const safeId = event.id.replace(/[^a-z0-9-]/gi, '-');
     const description = [`Instructor(s): ${event.instructor || 'Not set'}`, event.details].filter(Boolean).join('\n');
-    lines.push('BEGIN:VEVENT', `UID:${safeId}-${weekStart}@weekly-timetable`, `DTSTAMP:${stamp}`, `SUMMARY:${icsEscape(formatName(event))}`, `DTSTART;TZID=${TIME_ZONE}:${icsDate(date, event.start)}`, `DTEND;TZID=${TIME_ZONE}:${icsDate(date, event.end)}`, `RRULE:FREQ=WEEKLY;COUNT:${weeks}`, `DESCRIPTION:${icsEscape(description)}`, `LOCATION:${icsEscape(event.location || '')}`, 'STATUS:CONFIRMED', 'TRANSP:OPAQUE', 'END:VEVENT');
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${safeId}-${weekStart}@weekly-timetable`,
+      `DTSTAMP:${stamp}`,
+      `SUMMARY:${icsEscape(formatName(event))}`,
+      `DTSTART;TZID=${TIME_ZONE}:${icsDate(date, event.start)}`,
+      `DTEND;TZID=${TIME_ZONE}:${icsDate(date, event.end)}`,
+      `RRULE:FREQ=WEEKLY;COUNT=${weeks}`,
+      `DESCRIPTION:${icsEscape(description)}`,
+      `LOCATION:${icsEscape(event.location || '')}`,
+      'STATUS:CONFIRMED',
+      'TRANSP:OPAQUE',
+      'END:VEVENT'
+    );
   });
   lines.push('END:VCALENDAR');
   return foldIcsLines(lines);
@@ -387,6 +531,7 @@ $('cancelEventBtn').addEventListener('click', () => $('eventDialog').close('canc
 $('icsClose').addEventListener('click', closeIcsDialog);
 $('icsCancelBtn').addEventListener('click', closeIcsDialog);
 $('board').addEventListener('click', (event) => {
+  if (event.target.closest('.clash-nav')) return;
   const card = event.target.closest('.event-card');
   if (card) openDetails(card.dataset.eventId);
 });

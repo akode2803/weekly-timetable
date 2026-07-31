@@ -97,6 +97,19 @@ a { color: var(--blue); }
 .event-instructor, .event-location { display: block; margin-top: 3px; overflow-wrap: anywhere; font-size: 10px; opacity: .76; }
 .clash-badge { display: inline-block; margin-top: 4px; color: var(--red); font-size: 9px; font-weight: 800; }
 
+.clash-slider-container { position: absolute; left: 6px; right: 6px; z-index: 2; }
+.clash-slider { display: flex; width: 100%; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; -ms-overflow-style: none; }
+.clash-slider::-webkit-scrollbar { display: none; }
+.clash-slide { flex: 0 0 100%; width: 100%; min-width: 100%; height: 100%; position: relative; scroll-snap-align: start; scroll-snap-stop: always; }
+.clash-slide .event-card { left: 0; right: 0; width: 100%; }
+.clash-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 800; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .2s ease, background-color .15s ease, border-color .15s ease; box-shadow: 0 2px 8px #0004; }
+.clash-slider-container:hover .clash-nav:not([disabled]) { opacity: .9; }
+.clash-nav:hover:not([disabled]) { opacity: 1 !important; background: var(--blue-soft); border-color: var(--blue); color: var(--blue); }
+.clash-nav[disabled] { opacity: 0 !important; pointer-events: none; }
+.clash-prev { left: 4px; }
+.clash-next { right: 4px; }
+.clash-count-indicator { position: absolute; top: 6px; right: 6px; z-index: 9; padding: 1px 5px; border-radius: 4px; background: var(--red); color: #fff; font: 800 9px 'DM Mono', monospace; letter-spacing: .05em; pointer-events: none; }
+
 .filters { margin: 0 0 18px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .filter-row + .filter-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
@@ -155,12 +168,12 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding-top: 
 
 dialog { width: min(520px, calc(100% - 30px)); padding: 0; border: 0; border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px #00000055; }
 dialog::backdrop { background: #0009; backdrop-filter: blur(3px); }
-#eventForm { padding: 25px; }
+#eventForm, #icsForm { padding: 25px; }
 .dialog-head { display: flex; justify-content: space-between; margin-bottom: 24px; }
 .dialog-head h2 { margin: 0; font-size: 24px; letter-spacing: -.04em; }
 .dialog-head .eyebrow { margin-bottom: 7px; }
 .dialog-intro { margin: -6px 0 22px; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.export-scope { margin: 0; color: var(--muted); font-size: 11px; }
+.export-scope { margin: 14px 0 0; color: var(--muted); font-size: 11px; }
 label { display: block; margin-bottom: 14px; font-size: 12px; font-weight: 700; }
 label input, label select, label textarea { display: block; width: 100%; margin-top: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-raised); color: var(--ink); font-size: 13px; }
 label textarea { resize: vertical; line-height: 1.5; }
@@ -194,4 +207,5 @@ label input:focus, label select:focus, label textarea:focus { outline: 2px solid
   .footer-actions .button { flex: 1; }
   .detail-sidebar { top: auto; bottom: 0; width: 100%; height: min(82dvh, 680px); padding: 24px 20px calc(20px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); border-left: 0; border-radius: 18px 18px 0 0; transform: translateY(105%); }
   .detail-sidebar.is-open { transform: translateY(0); }
+  #eventForm, #icsForm { padding: 20px; }
 }
