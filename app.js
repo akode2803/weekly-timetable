@@ -377,13 +377,23 @@ function defaultWeekStart() {
 }
 
 function dateForEvent(weekStart, event) {
-  const date = new Date(`${weekStart}T00:00:00`);
-  date.setDate(date.getDate() + DAYS.indexOf(event.day));
+  const [year, month, day] = weekStart.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const dayIndex = DAYS.indexOf(event.day);
+  if (dayIndex > -1) {
+    date.setDate(date.getDate() + dayIndex);
+  }
   return date;
 }
 
 function icsDate(date, time) {
-  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}T${time.replace(':', '')}00`;
+  const [hours, minutes] = time.split(':').map(Number);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(hours).padStart(2, '0');
+  const mm = String(minutes).padStart(2, '0');
+  return `${y}${m}${d}T${hh}${mm}00`;
 }
 
 function icsEscape(value = '') {
@@ -428,21 +438,28 @@ function buildIcs(weekStart, weeks, exportEvents) {
   exportEvents.forEach((event) => {
     const date = dateForEvent(weekStart, event);
     const safeId = event.id.replace(/[^a-z0-9-]/gi, '-');
-    const description = [`Instructor(s): ${event.instructor || 'Not set'}`, event.details].filter(Boolean).join('\n');
-    lines.push(
-      'BEGIN:VEVENT',
-      `UID:${safeId}-${weekStart}@weekly-timetable`,
-      `DTSTAMP:${stamp}`,
-      `SUMMARY:${icsEscape(formatName(event))}`,
-      `DTSTART;TZID=${TIME_ZONE}:${icsDate(date, event.start)}`,
-      `DTEND;TZID=${TIME_ZONE}:${icsDate(date, event.end)}`,
-      `RRULE:FREQ=WEEKLY;COUNT=${weeks}`,
-      `DESCRIPTION:${icsEscape(description)}`,
-      `LOCATION:${icsEscape(event.location || '')}`,
-      'STATUS:CONFIRMED',
-      'TRANSP:OPAQUE',
-      'END:VEVENT'
-    );
+    const descriptionParts = [];
+    if (event.instructor) descriptionParts.push(`Instructor(s): ${event.instructor.trim()}`);
+    if (event.details) descriptionParts.push(event.details.trim());
+    const description = descriptionParts.join('\n');
+
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${safeId}-${weekStart}@weekly-timetable`);
+    lines.push(`DTSTAMP:${stamp}`);
+    lines.push(`SUMMARY:${icsEscape(formatName(event))}`);
+    lines.push(`DTSTART;TZID=${TIME_ZONE}:${icsDate(date, event.start)}`);
+    lines.push(`DTEND;TZID=${TIME_ZONE}:${icsDate(date, event.end)}`);
+    lines.push(`RRULE:FREQ=WEEKLY;COUNT=${weeks}`);
+    if (description) {
+      lines.push(`DESCRIPTION:${icsEscape(description)}`);
+    }
+    if (event.location && event.location.trim()) {
+      lines.push(`LOCATION:${icsEscape(event.location.trim())}`);
+    }
+    lines.push('SEQUENCE:0');
+    lines.push('STATUS:CONFIRMED');
+    lines.push('TRANSP:OPAQUE');
+    lines.push('END:VEVENT');
   });
   lines.push('END:VCALENDAR');
   return foldIcsLines(lines);
