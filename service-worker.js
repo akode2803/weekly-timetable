@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weekly-timetable-v4';
+const CACHE_NAME = 'weekly-timetable-v5';
 const BASE = self.location.pathname.replace(/service-worker\.js$/, '');
 const APP_SHELL = [
   BASE,

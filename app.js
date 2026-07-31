@@ -4,6 +4,8 @@ const BOARD_END = 20 * 60;
 const STORAGE_KEY = 'iitk-weekly-timetable-v2';
 const OLD_STORAGE_KEY = 'iitk-weekly-timetable-v1';
 const THEME_KEY = 'iitk-weekly-timetable-theme';
+const TIME_ZONE = 'Asia/Kolkata';
+const ROOM_OVERRIDES = { 'cs787-wed': 'L20', 'cs787-fri': 'L19', 'cs781-mon': 'DJ205H', 'cs781-thu': 'RM101' };
 const $ = (id) => document.getElementById(id);
 const typeLabel = { formal: 'Formal course', ta: 'TA duty', audit: 'Optional / audit' };
 let events = [];
@@ -11,6 +13,9 @@ let defaultEvents = [];
 let sourceName = 'schedule.csv';
 let selectedEventId = null;
 let deferredInstallPrompt = null;
+const activeTypes = new Set();
+const activeCourses = new Set();
+let hasAutoScrolled = false;
 
 function cloneEvents(list) { return list.map((event) => ({ ...event })); }
 
@@ -103,6 +108,10 @@ function formatName(event) { return event.course ? `${event.course} — ${event.
 function overlaps(a, b) { return a.day === b.day && mins(a.start) < mins(b.end) && mins(b.start) < mins(a.end); }
 function clashPeers(event) { return events.filter((other) => other.id !== event.id && overlaps(event, other)); }
 function clashes() { return new Set(events.filter((event) => clashPeers(event).length).map((event) => event.id)); }
+function filteredEvents() {
+  return events.filter((event) => (activeTypes.size === 0 || activeTypes.has(event.type)) && (activeCourses.size === 0 || activeCourses.has(event.course || event.title)));
+}
+function filtersActive() { return activeTypes.size > 0 || activeCourses.size > 0; }
 function escapeHtml(value = '') { return String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function formatMultiline(value = '') { return escapeHtml(value).replace(/\n/g, '<br>'); }
 function instructorMarkup(value = '') { return value ? value.split(';').map((name) => `<li>${escapeHtml(name.trim())}</li>`).join('') : '<li>Instructor not set</li>'; }
@@ -113,9 +122,11 @@ function updateTermLabel() {
 
 function render() {
   const bad = clashes();
+  const visibleEvents = filteredEvents();
+  const todayIndex = (new Date().getDay() + 6) % 7;
   const board = $('board');
   board.style.gridTemplateRows = '56px 780px';
-  board.innerHTML = '<div class="corner"></div>' + DAYS.map((day) => `<div class="day-head">${day.slice(0, 3).toUpperCase()}<small>${day}</small></div>`).join('');
+  board.innerHTML = '<div class="corner"></div>' + DAYS.map((day, index) => `<div class="day-head${index === todayIndex ? ' current-day' : ''}">${day.slice(0, 3).toUpperCase()}<small>${day}</small></div>`).join('');
   const rail = document.createElement('div');
   rail.className = 'time-rail';
   for (let hour = 8; hour <= 20; hour += 1) rail.insertAdjacentHTML('beforeend', `<div class="time-cell">${String(hour).padStart(2, '0')}:00</div>`);
@@ -123,8 +134,8 @@ function render() {
 
   DAYS.forEach((day) => {
     const column = document.createElement('div');
-    column.className = 'day-column';
-    events.filter((event) => event.day === day).sort((a, b) => mins(a.start) - mins(b.start)).forEach((event) => {
+    column.className = `day-column${DAYS.indexOf(day) === todayIndex ? ' current-day' : ''}`;
+    visibleEvents.filter((event) => event.day === day).sort((a, b) => mins(a.start) - mins(b.start)).forEach((event) => {
       const top = Math.max(0, mins(event.start) - BOARD_START);
       const height = Math.max(42, Math.min(BOARD_END - BOARD_START, mins(event.end) - mins(event.start)));
       const card = document.createElement('article');
@@ -140,26 +151,27 @@ function render() {
         <span class="event-time">${formatTime(event.start)} – ${formatTime(event.end)}</span>
         <span class="event-instructor">${event.instructor ? `Instructor · ${escapeHtml(event.instructor)}` : 'Instructor not set'}</span>
         ${event.location ? `<span class="event-location">${escapeHtml(event.location)}</span>` : ''}
-        ${bad.has(event.id) ? '<span class="clash-badge">CLASH</span>' : ''}
-        <span class="event-tools"><button class="icon-btn" data-edit="${event.id}" aria-label="Edit">✎</button><button class="icon-btn" data-delete="${event.id}" aria-label="Delete">×</button></span>`;
+        ${bad.has(event.id) ? '<span class="clash-badge">CLASH</span>' : ''}`;
       column.appendChild(card);
     });
     board.appendChild(column);
   });
 
-  const formalCourses = new Set(events.filter((event) => event.type === 'formal').map((event) => event.course || event.title));
-  $('eventCount').textContent = events.length;
+  const formalCourses = new Set(visibleEvents.filter((event) => event.type === 'formal').map((event) => event.course || event.title));
+  $('eventCount').textContent = visibleEvents.length;
   $('formalCount').textContent = formalCourses.size;
-  $('clashCount').textContent = bad.size;
-  $('sourceNote').textContent = `Source: ${sourceName} · ${events.length} events`;
+  $('clashCount').textContent = new Set(visibleEvents.filter((event) => bad.has(event.id)).map((event) => event.id)).size;
+  $('sourceNote').textContent = `Source: ${sourceName} · ${visibleEvents.length}${filtersActive() ? ` of ${events.length}` : ''} events`;
   updateTermLabel();
   if (!$('savedNote').textContent.startsWith('Saved')) $('savedNote').textContent = `Source: ${sourceName}`;
-  renderAudits();
+  renderFilters();
+  renderAudits(visibleEvents);
+  updateFilterSummary(visibleEvents);
 }
 
-function renderAudits() {
+function renderAudits(visibleEvents = filteredEvents()) {
   const grouped = new Map();
-  events.filter((event) => event.type === 'audit').forEach((event) => {
+  visibleEvents.filter((event) => event.type === 'audit').forEach((event) => {
     const key = event.course || event.title;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(event);
@@ -172,6 +184,31 @@ function renderAudits() {
     const instructors = [...new Set(items.flatMap((item) => item.instructor.split(';').map((name) => name.trim()).filter(Boolean)))].join('; ');
     return `<div class="audit-item${hasClash ? ' clash-item' : ''}"><h3>${escapeHtml(course)}</h3><p>${escapeHtml(schedules)}</p><p class="audit-instructor">${escapeHtml(instructors || 'Instructor not set')}</p>${hasClash ? `<div class="warning">⚠ overlaps with ${escapeHtml([...new Set(items.flatMap((item) => clashPeers(item).filter((peer) => peer.type === 'audit').map((peer) => peer.course || peer.title)))].join(', '))}</div>` : ''}</div>`;
   }).join('');
+}
+
+function renderFilters() {
+  document.querySelectorAll('[data-filter-type]').forEach((button) => {
+    const active = activeTypes.has(button.dataset.filterType);
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const courses = [...new Set(events.map((event) => event.course || event.title).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  $('courseFilters').innerHTML = courses.map((course) => `<button class="filter-chip course-chip${activeCourses.has(course) ? ' active' : ''}" type="button" data-filter-course="${escapeHtml(course)}" aria-pressed="${activeCourses.has(course)}">${escapeHtml(course)}</button>`).join('');
+  $('clearFilters').hidden = !filtersActive();
+}
+
+function updateFilterSummary(visibleEvents = filteredEvents()) {
+  $('eventCountLabel').textContent = filtersActive() ? 'visible events' : 'events this week';
+  $('filterSummary').textContent = filtersActive() ? `${visibleEvents.length} matching event${visibleEvents.length === 1 ? '' : 's'}` : 'No filters active';
+}
+
+function scrollCurrentDayIntoView() {
+  if (hasAutoScrolled || window.innerWidth > 700) return;
+  const dayIndex = (new Date().getDay() + 6) % 7;
+  const board = $('board');
+  const dayWidth = (board.scrollWidth - 76) / DAYS.length;
+  $('boardWrap').scrollTo({ left: Math.max(0, (dayIndex * dayWidth) + 76 - 10), behavior: 'auto' });
+  hasAutoScrolled = true;
 }
 
 function openDetails(eventId) {
@@ -221,6 +258,73 @@ function openEditor(event) {
   $('eventDialog').showModal();
 }
 
+function localDateString(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function defaultWeekStart() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return localDateString(date);
+}
+
+function dateForEvent(weekStart, event) {
+  const date = new Date(`${weekStart}T00:00:00`);
+  date.setDate(date.getDate() + DAYS.indexOf(event.day));
+  return date;
+}
+
+function icsDate(date, time) {
+  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}T${time.replace(':', '')}00`;
+}
+
+function icsEscape(value = '') {
+  return String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1');
+}
+
+function foldIcsLines(lines) {
+  return lines.flatMap((line) => {
+    const chunks = [];
+    for (let index = 0; index < line.length; index += 74) chunks.push(`${chunks.length ? ' ' : ''}${line.slice(index, index + 74)}`);
+    return chunks;
+  }).join('\r\n') + '\r\n';
+}
+
+function buildIcs(weekStart, weeks, exportEvents) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'PRODID:-//IITK Weekly Timetable//EN', 'X-WR-CALNAME:IITK Weekly Timetable', `X-WR-TIMEZONE:${TIME_ZONE}`];
+  exportEvents.forEach((event) => {
+    const date = dateForEvent(weekStart, event);
+    const safeId = event.id.replace(/[^a-z0-9-]/gi, '-');
+    const description = [`Instructor(s): ${event.instructor || 'Not set'}`, event.details].filter(Boolean).join('\n');
+    lines.push('BEGIN:VEVENT', `UID:${safeId}-${weekStart}@weekly-timetable`, `DTSTAMP:${stamp}`, `SUMMARY:${icsEscape(formatName(event))}`, `DTSTART;TZID=${TIME_ZONE}:${icsDate(date, event.start)}`, `DTEND;TZID=${TIME_ZONE}:${icsDate(date, event.end)}`, `RRULE:FREQ=WEEKLY;COUNT:${weeks}`, `DESCRIPTION:${icsEscape(description)}`, `LOCATION:${icsEscape(event.location || '')}`, 'STATUS:CONFIRMED', 'TRANSP:OPAQUE', 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return foldIcsLines(lines);
+}
+
+async function shareOrDownloadIcs(content, filename) {
+  const file = new File([content], filename, { type: 'text/calendar;charset=utf-8' });
+  try {
+    if (navigator.share && navigator.canShare?.({ files: [file] })) { await navigator.share({ title: 'Weekly timetable', files: [file] }); return; }
+  } catch (error) { if (error.name === 'AbortError') return; }
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function openIcsDialog() {
+  $('icsStartDate').value = defaultWeekStart();
+  $('icsWeeks').value = 16;
+  const count = filteredEvents().length;
+  $('exportScope').textContent = filtersActive() ? `This will export ${count} event${count === 1 ? '' : 's'} matching the active filters.` : 'All timetable events will be exported.';
+  $('icsDialog').showModal();
+}
+
+function closeIcsDialog() { if ($('icsDialog').open) $('icsDialog').close('cancel'); }
+
 function deleteEvent(eventId) {
   const event = events.find((item) => item.id === eventId);
   if (!event || !window.confirm(`Delete ${formatName(event)}?`)) return;
@@ -244,6 +348,8 @@ function handleCsvLoad(file) {
   file.text().then((text) => {
     const loaded = parseCsv(text);
     if (!loaded.length) { window.alert('No valid events were found. Check the CSV columns and try again.'); return; }
+    activeTypes.clear();
+    activeCourses.clear();
     events = loaded;
     sourceName = file.name;
     closeSidebar();
@@ -259,35 +365,52 @@ async function boot() {
   const old = saved?.events || migrateOldEvents();
   if (old) {
     const defaultsById = new Map(defaultEvents.map((event) => [event.id, event]));
-    events = old.map((event) => ({ ...(defaultsById.get(event.id) || {}), ...event }));
+    events = old.map((event) => ({ ...(defaultsById.get(event.id) || {}), ...event, ...(ROOM_OVERRIDES[event.id] ? { location: ROOM_OVERRIDES[event.id] } : {}) }));
     sourceName = saved?.sourceName || 'Saved timetable';
   } else {
     events = cloneEvents(defaultEvents);
   }
   if (!events.length) $('savedNote').textContent = 'No schedule loaded';
   render();
+  window.requestAnimationFrame(scrollCurrentDayIntoView);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch((error) => console.warn('Offline support unavailable.', error));
 }
 
 $('addBtn').addEventListener('click', () => openEditor());
-$('resetBtn').addEventListener('click', () => { if (window.confirm('Reset all events to schedule.csv defaults?')) { events = cloneEvents(defaultEvents); sourceName = 'schedule.csv'; closeSidebar(); save('Defaults restored'); render(); } });
+$('resetBtn').addEventListener('click', () => { if (window.confirm('Reset all events to schedule.csv defaults?')) { activeTypes.clear(); activeCourses.clear(); events = cloneEvents(defaultEvents); sourceName = 'schedule.csv'; closeSidebar(); save('Defaults restored'); render(); } });
 $('loadBtn').addEventListener('click', () => $('csvInput').click());
 $('csvInput').addEventListener('change', (event) => { handleCsvLoad(event.target.files[0]); event.target.value = ''; });
 $('themeToggle').addEventListener('click', () => { const next = document.body.classList.contains('light') ? 'dark' : 'light'; localStorage.setItem(THEME_KEY, next); applyTheme(next); });
+$('icsBtn').addEventListener('click', openIcsDialog);
+$('dialogClose').addEventListener('click', () => $('eventDialog').close('cancel'));
+$('cancelEventBtn').addEventListener('click', () => $('eventDialog').close('cancel'));
+$('icsClose').addEventListener('click', closeIcsDialog);
+$('icsCancelBtn').addEventListener('click', closeIcsDialog);
 $('board').addEventListener('click', (event) => {
-  const edit = event.target.closest('[data-edit]');
-  const del = event.target.closest('[data-delete]');
-  if (edit) { event.stopPropagation(); openEditor(events.find((item) => item.id === edit.dataset.edit)); return; }
-  if (del) { event.stopPropagation(); deleteEvent(del.dataset.delete); return; }
   const card = event.target.closest('.event-card');
   if (card) openDetails(card.dataset.eventId);
 });
 $('board').addEventListener('keydown', (event) => { const card = event.target.closest('.event-card'); if (card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openDetails(card.dataset.eventId); } });
+$('typeFilters').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-filter-type]');
+  if (!button) return;
+  const type = button.dataset.filterType;
+  if (activeTypes.has(type)) activeTypes.delete(type); else activeTypes.add(type);
+  render();
+});
+$('courseFilters').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-filter-course]');
+  if (!button) return;
+  const course = button.dataset.filterCourse;
+  if (activeCourses.has(course)) activeCourses.delete(course); else activeCourses.add(course);
+  render();
+});
+$('clearFilters').addEventListener('click', () => { activeTypes.clear(); activeCourses.clear(); render(); });
 $('sidebarBackdrop').addEventListener('click', closeSidebar);
 $('sidebarClose').addEventListener('click', closeSidebar);
 $('sidebarEdit').addEventListener('click', () => { const event = events.find((item) => item.id === selectedEventId); if (event) openEditor(event); });
 $('sidebarDelete').addEventListener('click', () => { if (selectedEventId) deleteEvent(selectedEventId); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeSidebar(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeSidebar(); closeIcsDialog(); } });
 $('eventForm').addEventListener('submit', (event) => {
   event.preventDefault();
   const existing = events.find((item) => item.id === $('eventId').value);
@@ -299,6 +422,18 @@ $('eventForm').addEventListener('submit', (event) => {
   $('eventDialog').close();
   render();
   if (selectedEventId === data.id) openDetails(data.id);
+});
+$('icsForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const weekStart = $('icsStartDate').value;
+  const weeks = Number($('icsWeeks').value);
+  if (!weekStart || new Date(`${weekStart}T00:00:00`).getDay() !== 1) { window.alert('Please choose a Monday as the first week.'); return; }
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52) { window.alert('Choose between 1 and 52 weeks.'); return; }
+  const exportEvents = filteredEvents();
+  if (!exportEvents.length) { window.alert('There are no visible events to export.'); return; }
+  const filename = `${sourceName.replace(/\.csv$/i, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'weekly-timetable'}.ics`;
+  await shareOrDownloadIcs(buildIcs(weekStart, weeks, exportEvents), filename);
+  closeIcsDialog();
 });
 
 window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; $('installBtn').hidden = false; });

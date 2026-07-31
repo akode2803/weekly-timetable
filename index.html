@@ -26,30 +26,36 @@
           <p class="lede">A calm view of your classes, TA duty, and optional audits.</p>
         </div>
         <div class="hero-actions">
-          <button class="button button-quiet" id="loadBtn" type="button">Load CSV</button>
+          <button class="button button-primary" id="addBtn" type="button">＋ Add event</button>
+          <button class="button button-quiet" id="icsBtn" type="button">Export .ics</button>
           <button class="button button-quiet" id="themeToggle" type="button" aria-label="Switch to light mode">☼ Light</button>
           <button class="button button-quiet" id="installBtn" type="button" hidden>Install app</button>
-          <button class="button button-quiet" id="resetBtn" type="button">Reset defaults</button>
-          <button class="button button-primary" id="addBtn" type="button">＋ Add event</button>
           <input id="csvInput" type="file" accept=".csv,text/csv" hidden />
         </div>
       </header>
 
       <section class="summary" aria-label="Timetable summary">
-        <div><strong id="eventCount">0</strong><span>events this week</span></div>
+        <div><strong id="eventCount">0</strong><span id="eventCountLabel">events this week</span></div>
         <div><strong id="formalCount">0</strong><span>formal courses</span></div>
         <div><strong id="clashCount">0</strong><span>clashes flagged</span></div>
         <p class="saved-note" id="savedNote">Loading schedule.csv…</p>
       </section>
 
-      <section class="legend" aria-label="Event types">
-        <span><i class="dot formal"></i>Formal course</span>
-        <span><i class="dot ta"></i>TA duty</span>
-        <span><i class="dot audit"></i>Optional / audit</span>
-        <a href="schedule.csv" download>Download sample CSV</a>
+      <section class="filters" aria-label="Timetable filters">
+        <div class="filter-row" id="typeFilters">
+          <span class="filter-label">Show</span>
+          <button class="filter-chip" type="button" data-filter-type="formal" aria-pressed="false"><i class="dot formal"></i>Formal course</button>
+          <button class="filter-chip" type="button" data-filter-type="ta" aria-pressed="false"><i class="dot ta"></i>TA duty</button>
+          <button class="filter-chip" type="button" data-filter-type="audit" aria-pressed="false"><i class="dot audit"></i>Optional / audit</button>
+        </div>
+        <div class="filter-row course-filter-row">
+          <span class="filter-label">Courses</span>
+          <div class="filter-chips" id="courseFilters"></div>
+        </div>
+        <div class="filter-controls"><button class="button button-quiet clear-filters" id="clearFilters" type="button" hidden>Clear filters</button><p id="filterSummary" aria-live="polite"></p></div>
       </section>
 
-      <section class="board-wrap" aria-label="Weekly timetable">
+      <section class="board-wrap" id="boardWrap" aria-label="Weekly timetable">
         <div class="board" id="board"></div>
       </section>
 
@@ -64,7 +70,10 @@
         <div id="auditList" class="audit-list"></div>
       </section>
 
-      <footer><span id="sourceNote">Source: schedule.csv</span><span>Tip: click any card for details.</span></footer>
+      <footer>
+        <div class="footer-copy"><span id="sourceNote">Source: schedule.csv</span><span>Tip: click any card for details.</span><a href="schedule.csv" download>Download sample CSV</a></div>
+        <div class="footer-actions"><button class="button button-quiet" id="loadBtn" type="button">Load CSV</button><button class="button button-quiet" id="resetBtn" type="button">Reset defaults</button></div>
+      </footer>
     </main>
 
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
@@ -79,7 +88,7 @@
 
     <dialog id="eventDialog">
       <form method="dialog" id="eventForm">
-        <div class="dialog-head"><div><p class="eyebrow">TIMETABLE EDITOR</p><h2 id="dialogTitle">Add event</h2></div><button class="close" value="cancel" aria-label="Close">×</button></div>
+        <div class="dialog-head"><div><p class="eyebrow">TIMETABLE EDITOR</p><h2 id="dialogTitle">Add event</h2></div><button class="close" id="dialogClose" type="button" aria-label="Close">×</button></div>
         <input type="hidden" id="eventId" />
         <div class="form-grid"><label>Course code<input id="course" maxlength="20" placeholder="e.g. CS781" /></label><label>Type<select id="type"><option value="formal">Formal course</option><option value="ta">TA duty</option><option value="audit">Optional / audit</option></select></label></div>
         <label>Title<input id="title" required maxlength="100" placeholder="e.g. Large Language Models" /></label>
@@ -88,7 +97,16 @@
         <div class="form-grid"><label>Start<input id="start" type="time" required /></label><label>End<input id="end" type="time" required /></label></div>
         <label>Details <span class="muted">(optional)</span><textarea id="details" rows="3" maxlength="500" placeholder="Anything useful to remember…"></textarea></label>
         <label class="check"><input id="editableDefault" type="checkbox" /> Mark as editable default / note</label>
-        <div class="dialog-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-primary" id="saveBtn" value="default">Save event</button></div>
+        <div class="dialog-actions"><button class="button button-quiet" id="cancelEventBtn" type="button">Cancel</button><button class="button button-primary" id="saveBtn" type="submit">Save event</button></div>
+      </form>
+    </dialog>
+    <dialog id="icsDialog">
+      <form method="dialog" id="icsForm">
+        <div class="dialog-head"><div><p class="eyebrow">CALENDAR EXPORT</p><h2>Export weekly schedule</h2></div><button class="close" id="icsClose" type="button" aria-label="Close calendar export">×</button></div>
+        <p class="dialog-intro">Choose the Monday of the first week and how many weekly repeats to add. The .ics file can be opened or shared into Google Calendar on mobile.</p>
+        <div class="form-grid"><label>First Monday<input id="icsStartDate" type="date" required /></label><label>Weeks<input id="icsWeeks" type="number" min="1" max="52" value="16" required /></label></div>
+        <p class="export-scope" id="exportScope">All timetable events will be exported.</p>
+        <div class="dialog-actions"><button class="button button-quiet" id="icsCancelBtn" type="button">Cancel</button><button class="button button-primary" type="submit">Create .ics</button></div>
       </form>
     </dialog>
     <script src="app.js"></script>

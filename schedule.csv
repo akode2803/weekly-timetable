@@ -1,5 +1,5 @@
 id,course,title,instructor,day,start,end,type,location,details,editable,term
-cs781-mon,CS781,Large Language Models,Ashutosh Modi,Monday,12:00,13:15,formal,DJ205H / RM101,"Registered course; official timetable slot.",false,Autumn 2026–27
+cs781-mon,CS781,Large Language Models,Ashutosh Modi,Monday,12:00,13:15,formal,DJ205H,"Registered course; Monday lecture is in DJ205H.",false,Autumn 2026–27
 cs611-mon,CS611,System Level Data Formats and Representations for AI,Urbi Chatterjee,Monday,17:00,18:00,formal,KD102,"Registered course.",false,Autumn 2026–27
 cs610-mon,CS610,Programming for Performance,Swarnendu Biswas,Monday,08:00,09:00,audit,KD102,"Optional / audit course.",false,Autumn 2026–27
 cs778-mon,CS778,Foundations of Modern AI,Sayak Ray Chowdhury,Monday,15:30,17:00,audit,KD101,"Optional / audit course. Overlaps with CS777.",false,Autumn 2026–27
@@ -10,14 +10,14 @@ cs778-tue,CS778,Foundations of Modern AI,Sayak Ray Chowdhury,Tuesday,14:00,15:15
 cs777-tue,CS777,Topics in Learning Theory,Sutanu Gayen,Tuesday,14:00,15:15,audit,KD103,"Optional / audit course. Overlaps with CS778.",false,Autumn 2026–27
 cs623-wed,CS623,GPU Architecture and Programming,"Debadatta Mishra; Mainak Chaudhuri; Swarnendu Biswas",Wednesday,09:00,10:15,audit,KD102,"Optional / audit course.",false,Autumn 2026–27
 cs698b-wed,CS698B,Fundamentals of Data Engineering I,Purushottam Kar,Wednesday,10:30,12:00,audit,KD101,"Optional / audit course.",false,Autumn 2026–27
-cs787-wed,CS787,Generative Artificial Intelligence,Arnab Bhattacharya,Wednesday,12:00,13:15,formal,L20 / L19,"Registered course.",false,Autumn 2026–27
+cs787-wed,CS787,Generative Artificial Intelligence,Arnab Bhattacharya,Wednesday,12:00,13:15,formal,L20,"Registered course. Wednesday lecture is in L20.",false,Autumn 2026–27
 cs611-wed,CS611,System Level Data Formats and Representations for AI,Urbi Chatterjee,Wednesday,17:00,18:00,formal,KD102,"Registered course.",false,Autumn 2026–27
 cs771-wed,CS771,Introduction to Machine Learning,Piyush Rai,Wednesday,18:10,19:25,formal,L20,"Registered course. Time is kept editable because the source timetable may change.",true,Autumn 2026–27
-cs781-thu,CS781,Large Language Models,Ashutosh Modi,Thursday,12:00,13:15,formal,DJ205H / RM101,"Registered course; official timetable slot.",false,Autumn 2026–27
+cs781-thu,CS781,Large Language Models,Ashutosh Modi,Thursday,12:00,13:15,formal,RM101,"Registered course; Thursday lecture is in RM101.",false,Autumn 2026–27
 ta-thu,ESC111/112,TA lab duty,"Soumya Dutta; Sruti Srinivasa Ragavan",Thursday,14:00,15:00,ta,Assigned lab,"Reach the assigned lab by 13:45–13:50. The end time is an editable default because no official end time was provided.",true,Autumn 2026–27
 cs610-fri,CS610,Programming for Performance,Swarnendu Biswas,Friday,08:00,09:00,audit,KD102,"Optional / audit course.",false,Autumn 2026–27
 cs623-fri,CS623,GPU Architecture and Programming,"Debadatta Mishra; Mainak Chaudhuri; Swarnendu Biswas",Friday,09:00,10:15,audit,KD102,"Optional / audit course.",false,Autumn 2026–27
 cs698b-fri,CS698B,Fundamentals of Data Engineering I,Purushottam Kar,Friday,10:30,12:00,audit,KD101,"Optional / audit course.",false,Autumn 2026–27
-cs787-fri,CS787,Generative Artificial Intelligence,Arnab Bhattacharya,Friday,12:00,13:15,formal,L20 / L19,"Registered course.",false,Autumn 2026–27
+cs787-fri,CS787,Generative Artificial Intelligence,Arnab Bhattacharya,Friday,12:00,13:15,formal,L19,"Registered course. Friday lecture is in L19.",false,Autumn 2026–27
 cs611-fri,CS611,System Level Data Formats and Representations for AI,Urbi Chatterjee,Friday,17:00,18:00,formal,KD102,"Registered course.",false,Autumn 2026–27
 cs771-fri,CS771,Introduction to Machine Learning,Piyush Rai,Friday,18:10,19:25,formal,L20,"Registered course. Time is kept editable because the source timetable may change.",true,Autumn 2026–27
