@@ -3,7 +3,7 @@ const BOARD_START = 8 * 60;
 const BOARD_END = 20 * 60;
 const STORAGE_KEY = 'iitk-weekly-timetable-v2';
 const OLD_STORAGE_KEY = 'iitk-weekly-timetable-v1';
-const EXAM_STORAGE_KEY = 'iitk-weekly-timetable-exams-v1';
+const EXAM_STORAGE_KEY = 'iitk-weekly-timetable-exams-v2';
 const THEME_KEY = 'iitk-weekly-timetable-theme';
 const TIME_ZONE = 'Asia/Kolkata';
 const ROOM_OVERRIDES = { 'cs787-wed': 'L20', 'cs787-fri': 'L19', 'cs781-mon': 'DJ205H', 'cs781-thu': 'RM101' };
@@ -373,7 +373,7 @@ function examStatus(exam) {
 }
 
 function relevantExams() {
-  const courses = new Set(events.map((event) => (event.course || '').trim().toUpperCase()).filter(Boolean));
+  const courses = new Set(events.filter((event) => event.type === 'formal').map((event) => (event.course || '').trim().toUpperCase()).filter(Boolean));
   return exams.filter((exam) => courses.has(exam.course));
 }
 
