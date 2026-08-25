@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weekly-timetable-v5';
+const CACHE_NAME = 'weekly-timetable-v6';
 const BASE = self.location.pathname.replace(/service-worker\.js$/, '');
 const APP_SHELL = [
   BASE,
@@ -7,6 +7,7 @@ const APP_SHELL = [
   `${BASE}app.js`,
   `${BASE}manifest.json`,
   `${BASE}schedule.csv`,
+  `${BASE}exams.csv`,
   `${BASE}icon-192.png`,
   `${BASE}icon-512.png`,
   `${BASE}icon.svg`
@@ -22,9 +23,27 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const requestUrl = new URL(event.request.url);
+  const sameOrigin = requestUrl.origin === self.location.origin;
+  const networkFirst = sameOrigin && (
+    ['document', 'script', 'style', 'manifest'].includes(event.request.destination)
+    || requestUrl.pathname.endsWith('.csv')
+  );
+
+  if (networkFirst) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request).then((cached) => cached || caches.match(`${BASE}index.html`)))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      if (new URL(event.request.url).origin === self.location.origin) {
+      if (sameOrigin) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
       }

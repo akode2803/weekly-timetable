@@ -70,6 +70,24 @@
         <div id="auditList" class="audit-list"></div>
       </section>
 
+      <section class="exam-panel" id="examPanel" aria-labelledby="examHeading">
+        <div class="section-heading exam-heading">
+          <div>
+            <p class="eyebrow">ACADEMIC CALENDAR</p>
+            <h2 id="examHeading">Mid-semester exams</h2>
+          </div>
+          <div class="exam-controls">
+            <label class="exam-toggle"><input id="showAllExams" type="checkbox" /> Show all CSV entries</label>
+            <button class="button button-quiet" id="loadExamBtn" type="button">Load exam CSV</button>
+            <button class="button button-quiet" id="resetExamBtn" type="button">Reset exams</button>
+            <input id="examCsvInput" type="file" accept=".csv,text/csv" hidden />
+          </div>
+        </div>
+        <div class="exam-summary" id="examSummary" aria-live="polite">Loading exams.csv…</div>
+        <div id="examList" class="exam-list"></div>
+        <div class="exam-footer"><span id="examSourceNote">Source: exams.csv</span><a href="exams.csv" download>Download exam CSV</a></div>
+      </section>
+
       <footer>
         <div class="footer-copy"><span id="sourceNote">Source: schedule.csv</span><span>Tip: click any card for details.</span><a href="schedule.csv" download>Download sample CSV</a></div>
         <div class="footer-actions"><button class="button button-quiet" id="loadBtn" type="button">Load CSV</button><button class="button button-quiet" id="resetBtn" type="button">Reset defaults</button></div>

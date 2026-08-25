@@ -3,6 +3,7 @@ const BOARD_START = 8 * 60;
 const BOARD_END = 20 * 60;
 const STORAGE_KEY = 'iitk-weekly-timetable-v2';
 const OLD_STORAGE_KEY = 'iitk-weekly-timetable-v1';
+const EXAM_STORAGE_KEY = 'iitk-weekly-timetable-exams-v1';
 const THEME_KEY = 'iitk-weekly-timetable-theme';
 const TIME_ZONE = 'Asia/Kolkata';
 const ROOM_OVERRIDES = { 'cs787-wed': 'L20', 'cs787-fri': 'L19', 'cs781-mon': 'DJ205H', 'cs781-thu': 'RM101' };
@@ -11,15 +12,19 @@ const typeLabel = { formal: 'Formal course', ta: 'TA duty', audit: 'Optional / a
 let events = [];
 let defaultEvents = [];
 let sourceName = 'schedule.csv';
+let exams = [];
+let defaultExams = [];
+let examSourceName = 'exams.csv';
 let selectedEventId = null;
 let deferredInstallPrompt = null;
+let showAllExams = false;
 const activeTypes = new Set();
 const activeCourses = new Set();
 let hasAutoScrolled = false;
 
 function cloneEvents(list) { return list.map((event) => ({ ...event })); }
 
-function parseCsv(text) {
+function parseCsvRows(text) {
   const rows = [];
   let row = [];
   let value = '';
@@ -42,10 +47,18 @@ function parseCsv(text) {
   if (value.length || row.length) { row.push(value); if (row.some((cell) => cell.trim() !== '')) rows.push(row); }
   if (rows.length < 2) return [];
   const headers = rows.shift().map((header) => header.trim().toLowerCase());
-  return rows.map((values, index) => {
+  return rows.map((values) => {
     const raw = Object.fromEntries(headers.map((header, i) => [header, (values[i] || '').trim()]));
-    return normalizeEvent(raw, index);
-  }).filter((event) => event.title && event.day && event.start && event.end);
+    return raw;
+  });
+}
+
+function parseCsv(text) {
+  return parseCsvRows(text).map((raw, index) => normalizeEvent(raw, index)).filter((event) => event.title && event.day && event.start && event.end);
+}
+
+function parseExamCsv(text) {
+  return parseCsvRows(text).map((raw, index) => normalizeExam(raw, index)).filter((exam) => exam.course && exam.title && /^\d{4}-\d{2}-\d{2}$/.test(exam.date) && exam.start && exam.end);
 }
 
 function normalizeEvent(raw, index = 0) {
@@ -68,11 +81,40 @@ function normalizeEvent(raw, index = 0) {
   };
 }
 
+function normalizeExam(raw, index = 0) {
+  const course = (raw.course || raw.code || '').toUpperCase();
+  const title = raw.title || raw.name || 'Exam';
+  const slug = `${course || title}-${raw.date || index}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return {
+    id: raw.id || `${slug}-${index}`,
+    term: raw.term || '',
+    course,
+    title,
+    date: raw.date || '',
+    start: raw.start || '',
+    end: raw.end || '',
+    kind: raw.kind || raw.type || 'Exam',
+    location: raw.location || '',
+    details: raw.details || ''
+  };
+}
+
 async function fetchDefaultEvents() {
   try {
     const response = await fetch('./schedule.csv', { cache: 'no-cache' });
     if (!response.ok) throw new Error('Could not load schedule.csv');
     return parseCsv(await response.text());
+  } catch (error) {
+    console.warn(error);
+    return [];
+  }
+}
+
+async function fetchDefaultExams() {
+  try {
+    const response = await fetch('./exams.csv', { cache: 'no-cache' });
+    if (!response.ok) throw new Error('Could not load exams.csv');
+    return parseExamCsv(await response.text());
   } catch (error) {
     console.warn(error);
     return [];
@@ -88,6 +130,15 @@ function readSavedEvents() {
   return null;
 }
 
+function readSavedExams() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(EXAM_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved)) return { exams: saved.map(normalizeExam), sourceName: 'Saved exam schedule' };
+    if (saved?.exams && Array.isArray(saved.exams)) return { exams: saved.exams.map(normalizeExam), sourceName: saved.sourceName || 'Saved exam schedule' };
+  } catch (error) { console.warn('Saved exams could not be read.', error); }
+  return null;
+}
+
 function migrateOldEvents() {
   try {
     const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) || 'null');
@@ -100,6 +151,13 @@ function save(message = 'Saved in this browser') {
   $('savedNote').textContent = message;
   window.clearTimeout(save.noteTimer);
   save.noteTimer = window.setTimeout(() => { $('savedNote').textContent = `Source: ${sourceName}`; }, 1600);
+}
+
+function saveExams(message = 'Exam schedule saved') {
+  try { localStorage.setItem(EXAM_STORAGE_KEY, JSON.stringify({ exams, sourceName: examSourceName })); } catch (error) { console.warn('Could not save exams.', error); }
+  $('examSummary').textContent = message;
+  window.clearTimeout(saveExams.noteTimer);
+  saveExams.noteTimer = window.setTimeout(() => renderExams(), 1600);
 }
 
 function mins(time) { const [hours, minutes] = time.split(':').map(Number); return (hours * 60) + minutes; }
@@ -273,6 +331,7 @@ function render() {
   if (!$('savedNote').textContent.startsWith('Saved')) $('savedNote').textContent = `Source: ${sourceName}`;
   renderFilters();
   renderAudits(visibleEvents);
+  renderExams();
   updateFilterSummary(visibleEvents);
 }
 
@@ -291,6 +350,93 @@ function renderAudits(visibleEvents = filteredEvents()) {
     const instructors = [...new Set(items.flatMap((item) => item.instructor.split(';').map((name) => name.trim()).filter(Boolean)))].join('; ');
     return `<div class="audit-item${hasClash ? ' clash-item' : ''}"><h3>${escapeHtml(course)}</h3><p>${escapeHtml(schedules)}</p><p class="audit-instructor">${escapeHtml(instructors || 'Instructor not set')}</p>${hasClash ? `<div class="warning">⚠ overlaps with ${escapeHtml([...new Set(items.flatMap((item) => clashPeers(item).filter((peer) => peer.type === 'audit').map((peer) => peer.course || peer.title)))].join(', '))}</div>` : ''}</div>`;
   }).join('');
+}
+
+function dateFromIso(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function dayNameFromIso(value) {
+  return DAYS[(dateFromIso(value).getDay() + 6) % 7];
+}
+
+function formatExamDate(value) {
+  return new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }).format(dateFromIso(value));
+}
+
+function examStatus(exam) {
+  const today = localDateString(new Date());
+  if (exam.date < today) return 'past';
+  if (exam.date === today) return 'today';
+  return 'upcoming';
+}
+
+function relevantExams() {
+  const courses = new Set(events.map((event) => (event.course || '').trim().toUpperCase()).filter(Boolean));
+  return exams.filter((exam) => courses.has(exam.course));
+}
+
+function examClassPeers(exam) {
+  const day = dayNameFromIso(exam.date);
+  return events.filter((event) => event.day === day && event.course !== exam.course && mins(exam.start) < mins(event.end) && mins(event.start) < mins(exam.end));
+}
+
+function renderExams() {
+  const matching = relevantExams();
+  const visible = showAllExams ? exams : matching;
+  const list = $('examList');
+  $('examSourceNote').textContent = `Source: ${examSourceName}`;
+  $('examSummary').textContent = showAllExams
+    ? `Showing all ${exams.length} exam${exams.length === 1 ? '' : 's'} from the CSV · ${matching.length} match the current timetable.`
+    : `${matching.length} relevant exam${matching.length === 1 ? '' : 's'} found · ${exams.length} total entries in the CSV.`;
+
+  if (!visible.length) {
+    list.innerHTML = exams.length
+      ? '<p class="empty-state">No exam courses match the current timetable. Turn on “Show all CSV entries” to inspect the complete file.</p>'
+      : '<p class="empty-state">No valid exams were found in exams.csv.</p>';
+    return;
+  }
+
+  const grouped = new Map();
+  [...visible].sort((a, b) => a.date.localeCompare(b.date) || mins(a.start) - mins(b.start) || a.course.localeCompare(b.course)).forEach((exam) => {
+    if (!grouped.has(exam.date)) grouped.set(exam.date, []);
+    grouped.get(exam.date).push(exam);
+  });
+
+  list.innerHTML = [...grouped.entries()].map(([date, items]) => `
+    <section class="exam-day" aria-labelledby="exam-day-${date}">
+      <div class="exam-day-heading">
+        <div><p class="eyebrow">${examStatus(items[0]).toUpperCase()}</p><h3 id="exam-day-${date}">${escapeHtml(formatExamDate(date))}</h3></div>
+        <span class="exam-day-count">${items.length} exam${items.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="exam-grid">
+        ${items.map((exam) => {
+          const peers = examClassPeers(exam);
+          const relevant = matching.includes(exam);
+          return `<article class="exam-card${relevant ? '' : ' exam-unmatched'}" data-exam-id="${escapeHtml(exam.id)}">
+            <div class="exam-card-top"><span class="exam-course">${escapeHtml(exam.course)}</span><span class="exam-kind">${escapeHtml(exam.kind)}</span></div>
+            <h4>${escapeHtml(exam.title)}</h4>
+            <p class="exam-time">${formatTime(exam.start)} – ${formatTime(exam.end)}</p>
+            ${exam.location ? `<p class="exam-location">${escapeHtml(exam.location)}</p>` : ''}
+            ${exam.details ? `<p class="exam-details">${formatMultiline(exam.details)}</p>` : ''}
+            ${peers.length ? `<p class="exam-warning">⚠ Regular timetable overlap: ${escapeHtml([...new Set(peers.map((peer) => peer.course || peer.title))].join(', '))}</p>` : ''}
+          </article>`;
+        }).join('')}
+      </div>
+    </section>`).join('');
+}
+
+function handleExamCsvLoad(file) {
+  if (!file) return;
+  file.text().then((text) => {
+    const loaded = parseExamCsv(text);
+    if (!loaded.length) { window.alert('No valid exams were found. Check the exam CSV columns and try again.'); return; }
+    exams = loaded;
+    examSourceName = file.name;
+    saveExams('Exam CSV loaded and saved');
+    renderExams();
+  }).catch(() => window.alert('The exam CSV could not be read.'));
 }
 
 function renderFilters() {
@@ -521,7 +667,7 @@ function handleCsvLoad(file) {
 
 async function boot() {
   applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
-  defaultEvents = await fetchDefaultEvents();
+  [defaultEvents, defaultExams] = await Promise.all([fetchDefaultEvents(), fetchDefaultExams()]);
   const saved = readSavedEvents();
   const old = saved?.events || migrateOldEvents();
   if (old) {
@@ -531,16 +677,31 @@ async function boot() {
   } else {
     events = cloneEvents(defaultEvents);
   }
+  const savedExams = readSavedExams();
+  if (savedExams?.exams?.length) {
+    exams = savedExams.exams;
+    examSourceName = savedExams.sourceName || 'Saved exam schedule';
+  } else {
+    exams = cloneEvents(defaultExams);
+  }
   if (!events.length) $('savedNote').textContent = 'No schedule loaded';
   render();
   window.requestAnimationFrame(scrollCurrentDayIntoView);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch((error) => console.warn('Offline support unavailable.', error));
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then((registration) => registration.update())
+      .catch((error) => console.warn('Offline support unavailable.', error));
+  }
 }
 
 $('addBtn').addEventListener('click', () => openEditor());
 $('resetBtn').addEventListener('click', () => { if (window.confirm('Reset all events to schedule.csv defaults?')) { activeTypes.clear(); activeCourses.clear(); events = cloneEvents(defaultEvents); sourceName = 'schedule.csv'; closeSidebar(); save('Defaults restored'); render(); } });
 $('loadBtn').addEventListener('click', () => $('csvInput').click());
 $('csvInput').addEventListener('change', (event) => { handleCsvLoad(event.target.files[0]); event.target.value = ''; });
+$('showAllExams').addEventListener('change', (event) => { showAllExams = event.target.checked; renderExams(); });
+$('loadExamBtn').addEventListener('click', () => $('examCsvInput').click());
+$('examCsvInput').addEventListener('change', (event) => { handleExamCsvLoad(event.target.files[0]); event.target.value = ''; });
+$('resetExamBtn').addEventListener('click', () => { if (window.confirm('Reset exams to exams.csv defaults?')) { exams = cloneEvents(defaultExams); examSourceName = 'exams.csv'; saveExams('Exam defaults restored'); renderExams(); } });
 $('themeToggle').addEventListener('click', () => { const next = document.body.classList.contains('light') ? 'dark' : 'light'; localStorage.setItem(THEME_KEY, next); applyTheme(next); });
 $('icsBtn').addEventListener('click', openIcsDialog);
 $('dialogClose').addEventListener('click', () => $('eventDialog').close('cancel'));

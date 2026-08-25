@@ -137,6 +137,32 @@ a { color: var(--blue); }
 .audit-item .audit-instructor { margin-top: 8px; overflow-wrap: anywhere; font-family: Manrope, sans-serif; font-size: 10px; }
 .audit-item.clash-item { border-color: var(--red); background: color-mix(in srgb, var(--red-soft) 65%, var(--surface)); }
 .audit-item .warning { margin-top: 8px; color: var(--red); font: 10px Manrope, sans-serif; font-weight: 800; }
+.exam-panel { margin-top: 48px; }
+.exam-heading { align-items: center; }
+.exam-controls { display: flex; align-items: center; justify-content: end; flex-wrap: wrap; gap: 8px; }
+.exam-controls .button { padding: 8px 10px; font-size: 11px; }
+.exam-toggle { display: inline-flex; align-items: center; gap: 7px; margin: 0 5px 0 0; color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.exam-toggle input { accent-color: var(--blue); }
+.exam-summary { margin: -2px 0 18px; color: var(--muted); font-size: 12px; }
+.exam-list { display: grid; gap: 25px; }
+.exam-day { padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.exam-day-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.exam-day-heading .eyebrow { margin-bottom: 5px; }
+.exam-day-heading h3 { margin: 0; font-size: 18px; letter-spacing: -.03em; }
+.exam-day-count { color: var(--muted); font: 10px 'DM Mono', monospace; }
+.exam-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.exam-card { min-width: 0; padding: 15px; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 9px; background: var(--surface-raised); }
+.exam-card.exam-unmatched { border-left-color: var(--muted); opacity: .72; }
+.exam-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.exam-course { color: var(--blue); font: 10px 'DM Mono', monospace; font-weight: 700; }
+.exam-kind { color: var(--muted); font: 9px 'DM Mono', monospace; text-align: right; }
+.exam-card h4 { margin: 10px 0 7px; font-size: 14px; line-height: 1.3; }
+.exam-time { margin: 0; font: 11px 'DM Mono', monospace; }
+.exam-location, .exam-details { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.exam-details { padding-top: 8px; border-top: 1px solid var(--line); }
+.exam-warning { margin: 11px 0 0; padding-top: 9px; border-top: 1px solid color-mix(in srgb, var(--red) 35%, transparent); color: var(--red); font-size: 10px; font-weight: 800; line-height: 1.4; }
+.exam-footer { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+.exam-footer a { color: var(--muted); }
 .empty-state { color: var(--muted); font-size: 13px; }
 footer { display: flex; justify-content: space-between; gap: 20px; padding-top: 30px; color: var(--muted); font-size: 11px; }
 .footer-copy { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
@@ -204,6 +230,14 @@ label input:focus, label select:focus, label textarea:focus { outline: 2px solid
   .audit-list { grid-template-columns: 1fr 1fr; }
   .section-heading { display: block; }
   .section-heading > p { margin-top: 8px; }
+  .exam-panel { margin-top: 38px; }
+  .exam-controls { display: grid; grid-template-columns: 1fr 1fr; justify-content: stretch; margin-top: 16px; }
+  .exam-toggle { grid-column: 1 / -1; margin-right: 0; }
+  .exam-controls .button { width: 100%; }
+  .exam-day { padding: 14px; }
+  .exam-day-heading h3 { font-size: 16px; }
+  .exam-grid { grid-template-columns: 1fr; }
+  .exam-footer { display: grid; gap: 5px; }
   footer { display: block; }
   .footer-copy { display: grid; gap: 5px; }
   .footer-actions { margin-top: 16px; }

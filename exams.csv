@@ -1,0 +1,10 @@
+id,course,title,date,start,end,kind,location,details,term
+cs771-mid-2026,CS771,Introduction to Machine Learning,2026-09-13,17:00,19:00,Mid-semester exam,,Exam Scheduler IITK · 13 Sep 2026 · Sunday slot 4,First Semester 2026–27
+cs611-mid-2026,CS611,System Level Data Formats and Representations for AI,2026-09-14,17:00,19:00,Mid-semester exam,,Exam Scheduler IITK · 14 Sep 2026 · Monday slot 4,First Semester 2026–27
+cs777-mid-2026,CS777,Topics in Learning Theory,2026-09-16,14:00,16:00,Mid-semester exam,,Exam Scheduler IITK · 16 Sep 2026 · Wednesday slot 3,First Semester 2026–27
+cs778-mid-2026,CS778,Foundations of Modern AI,2026-09-16,14:00,16:00,Mid-semester exam,,Exam Scheduler IITK · 16 Sep 2026 · Wednesday slot 3,First Semester 2026–27
+cs698b-mid-2026,CS698B,Data Engineering,2026-09-18,17:00,19:00,Mid-semester exam,,Exam Scheduler IITK · 18 Sep 2026 · Friday slot 4,First Semester 2026–27
+cs610-mid-2026,CS610,Programming for Performance,2026-09-19,08:00,10:00,Mid-semester exam,,Exam Scheduler IITK · 19 Sep 2026 · Saturday slot 1,First Semester 2026–27
+cs623-mid-2026,CS623,GPU Architecture and Programming,2026-09-19,14:00,16:00,Mid-semester exam,,Exam Scheduler IITK · 19 Sep 2026 · Saturday slot 3,First Semester 2026–27
+cs781-mid-2026,CS781,Large Language Models,2026-09-20,08:00,10:00,Mid-semester exam,,Exam Scheduler IITK · 20 Sep 2026 · Sunday slot 1,First Semester 2026–27
+cs787-mid-2026,CS787,Generative Artificial Intelligence,2026-09-20,14:00,16:00,Mid-semester exam,,Exam Scheduler IITK · 20 Sep 2026 · Sunday slot 3,First Semester 2026–27
